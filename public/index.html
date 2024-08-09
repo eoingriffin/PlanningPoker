@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planning Poker</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #021526;
+            color: #E2E2B6;
+            font-family: Arial, sans-serif;
+            font-size: 1.5rem;
+        }
+
+        #app {
+            text-align: center;
+            width: 100%;
+        }
+
+        #heading {
+            margin-bottom: 0;
+        }
+
+        #roomIdHeading {
+            margin-top: 0;
+        }
+
+        #name-input {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+
+            > * {
+                margin-bottom: 10px;
+                font-size: 1.25rem;
+            }
+        }
+
+        #top-section {
+            margin-bottom: 20px;
+            display: flex;
+
+            #users, #statistics {
+                display: flex;
+                flex-direction: column;
+                flex: 1 1;
+            }
+
+            #users {
+                align-items: end;
+
+                h3 {
+                    margin-right: 100px;
+                }
+            }
+
+            #statistics {
+                align-items: start;
+
+                h3 {
+                    margin-left: 100px;
+                }
+            }
+
+            #user-list td:last-child {
+                padding-left: 10px;
+                width: 100px;
+            }
+
+            #statistics-list td:first-child {
+                padding-right: 10px;
+                width: 180px;
+            }
+
+            #user-list, #statistics-list {
+                line-height: 1.1em;
+
+                td:first-child {
+                    text-align: right;
+                }
+
+                td:last-child {
+                    text-align: left;
+                }
+            }
+        }
+
+        #card-buttons button, #admin-buttons button {
+            background-color: #6EACDA;
+            color: #021526;
+            border: 1px solid #fff;
+            border-radius: 3px;
+            margin: 5px;
+            padding: 10px;
+            cursor: pointer;
+            font-size: 1.5rem;
+        }
+
+        #card-buttons button {
+            min-width: 50px;
+            height: 70px;
+            vertical-align: middle;
+
+            &.selected {
+                background-color: #03346E;
+                color: #fff;
+            }
+            &[disabled] {
+                background-color: #494f60;
+                color: #8a8a8a;
+            }
+        }
+
+        #admin-buttons button {
+            margin-top: 20px;
+        }
+
+        #card-sets {
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <h2 id="heading">Planning Poker</h2>
+    <h3 id="roomIdHeading"></h3>
+    <div id="name-input">
+        Name: <input type="text" id="username" placeholder="Enter your name" onkeydown="handleKeyPress(event)"/>
+        Room ID (optional):<input type="text" id="roomId" placeholder="Enter room ID (optional)" onkeydown="handleKeyPress(event)"/>
+        <button onclick="enterRoom()">Join</button>
+        </td></tr>
+    </div>
+    <div id="poker-room" style="display:none;">
+        <div id="top-section">
+            <div id="users">
+                <h3>Users</h3>
+                <table id="user-list"></table>
+            </div>
+            <div id="statistics">
+                <h3>Statistics</h3>
+                <table id="statistics-list">
+                    <tr>
+                        <td>Median:</td>
+                        <td id="median"></td>
+                    </tr>
+                    <tr>
+                        <td>Average:</td>
+                        <td id="average"></td>
+                    </tr>
+                    <tr>
+                        <td>Outliers:</td>
+                        <td id="outliers"></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        <div id="card-buttons"></div>
+        <div id="admin-buttons" style="display:none;">
+            <button id="clear-btn" onclick="clearSelections()">Clear</button>
+            <button id="show-results-btn" onclick="revealResults()">Show Results</button>
+            <div>
+                <select id="card-sets" onchange="onCardSetChanged()"></select>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+  const extraCards = ['?', '&#x2615;'];
+  const cardSets = [
+    {name: 'Fibonacci', cards: [0, 0.5, 1, 2, 3, 5, 8, 13], isNumeric: true},
+    {name: 'Fibonacci++', cards: [0, 0.5, 1, 2, 3, 5, 8, 13, 21, 34, 55], isNumeric: true},
+    {name: 'T-shirt Sizes', cards: ['XS', 'S', 'M', 'L', 'XL', 'XXL'], isNumeric: false},
+    {name: 'Relative Sizes', cards: ['<', '<=', '==', '>=', '>'], isNumeric: false},
+    {name: 'Powers of 2', cards: [1, 2, 4, 8, 16, 32, 64], isNumeric: true},
+    {name: 'Prime Numbers', cards: [2, 3, 5, 7, 11, 13, 17, 19], isNumeric: true},
+    {name: 'Logarithmic Scale', cards: [1, 10, 100, 1000], isNumeric: true},
+    // { name: 'Geometric Progression', cards: [1, 3, 9, 27, 81], isNumeric: true },
+    // { name: 'Triangular Numbers', cards: [1, 3, 6, 10, 15, 21, 28], isNumeric: true },
+    // { name: 'Custom Multiples', cards: [1, 2, 5, 10, 20, 50, 100], isNumeric: true },
+    // { name: 'Hexadecimal', cards: [1, 2, 4, 8, 16, 32, 64, 128], isNumeric: true },
+  ];
+  let cardSet;
+  let cards;
+
+  let isAdmin = false;
+  let showResults = false;
+  let currentRoomId = undefined;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const storedName = localStorage.getItem('username');
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomId = urlParams.get('roomId');
+    if (storedName) {
+      document.getElementById('username').value = storedName;
+    }
+    if (roomId) {
+      document.getElementById('roomId').value = roomId;
+    }
+
+    getCardSetElement().innerHTML = cardSets
+      .map((set, index) => `<option value="${index}">${set.name}</option>`)
+      .join('');
+
+    initializeCards(0);
+  });
+
+  socket.on('admin', () => {
+    isAdmin = true;
+    document.getElementById('admin-buttons').style.display = 'block';
+  });
+
+  socket.on('user list', (users) => {
+    const userList = document.getElementById('user-list');
+    userList.innerHTML = users.map(user => {
+      let name;
+      let selection;
+      if (isUserMe(user)) {
+        cards.forEach((card, index) => {
+          const cardElement = document.getElementById(`card-${index}`);
+          if (user.card === card) {
+            cardElement.classList.add('selected');
+          } else {
+            cardElement.classList.remove('selected');
+          }
+        });
+        name = `${user.name} (me)`;
+        selection = user.card !== undefined ? user.card : '';
+      } else {
+        name = user.name;
+        selection = user.card !== undefined ? (showResults ? user.card : '&#10004;') : '';
+      }
+      return `<tr><td>${name}:</td><td>${selection}</td></tr>`;
+    }).join('');
+  });
+
+  function setCardsDisabled(disabled) {
+    console.log('setCardsDisabled');
+    console.log(disabled);
+    const cardButtons = document.querySelectorAll('#card-buttons button');
+    cardButtons.forEach(button => button.disabled = disabled);
+  }
+
+  function getCardSetElement() {
+    return document.getElementById('card-sets');
+  }
+
+  socket.on('clear', () => {
+    setCardsDisabled(false);
+    showResults = false;
+  });
+
+  socket.on('show results', () => {
+    setCardsDisabled(true);
+    showResults = true;
+  });
+
+  socket.on('show stats', (stats) => {
+    const medianElement = document.getElementById('median');
+    const averageElement = document.getElementById('average');
+    const outliersElement = document.getElementById('outliers');
+
+    if (stats) {
+      const useIndexStatsCalculation = !cardSet.isNumeric;
+      if (useIndexStatsCalculation) {
+        medianElement.textContent = getClosestCardsByIndex(stats.median).join('/');
+        averageElement.textContent = getClosestCardsByIndex(stats.average).join('/');
+        outliersElement.textContent = stats.outliers.map(outlierIndex => getCardByIndex(outlierIndex)).join(', ') || 'None';
+      } else {
+        medianElement.textContent = stats.median.toFixed(2);
+        averageElement.textContent = stats.average.toFixed(2);
+        outliersElement.textContent = stats.outliers.join(', ') || 'None';
+      }
+    } else {
+      medianElement.textContent = '';
+      averageElement.textContent = '';
+      outliersElement.textContent = '';
+    }
+  });
+
+  function getClosestCardsByIndex(value) {
+    const isInteger = parseInt(value) === value;
+    if (isInteger) {
+      return [getCardByIndex(value)];
+    }
+    return [getCardByIndex(Math.floor(value)), getCardByIndex(Math.ceil(value))];
+  }
+
+  function getCardByIndex(cardIndex) {
+    return cards[cardIndex];
+  }
+
+  socket.on('change card set', (cardSetIndex) => {
+    initializeCards(cardSetIndex)
+  });
+
+  socket.on('log message', (message) => {
+    console.log(message);
+  });
+
+  function isUserMe(user) {
+    return user.id === socket.id;
+  }
+
+  function handleKeyPress(event) {
+    if (event.key === 'Enter') {
+      enterRoom();
+    }
+  }
+
+  function enterRoom() {
+    const name = document.getElementById('username').value;
+    const roomId = document.getElementById('roomId').value || generateRoomId();
+    if (name && roomId) {
+      localStorage.setItem('username', name);
+      currentRoomId = roomId;
+      socket.emit('join room', roomId, name);
+      document.getElementById('name-input').style.display = 'none';
+      document.getElementById('poker-room').style.display = 'block';
+      document.title = `Planning Poker - Room ${roomId}`;
+      const roomIdHeading = document.getElementById('roomIdHeading');
+      roomIdHeading.innerHTML = `(${roomId})`;
+      history.pushState({}, `Planning Poker - Room ${roomId}`, `?roomId=${roomId}`);
+    }
+  }
+
+  function initializeCards(cardSetIndex) {
+    cardSet = cardSets[cardSetIndex];
+    cards = cardSet.cards.concat(extraCards);
+    getCardSetElement().value = cardSetIndex;
+    document.getElementById('card-buttons').innerHTML = cards
+      .map((card, index) => `<button id="card-${index}" onclick="selectCard(${index})">${card}</button>`)
+      .join('\n');
+  }
+
+  function selectCard(index) {
+    const card = cards[index];
+    socket.emit('select card', currentRoomId, card, index);
+  }
+
+  function clearSelections() {
+    socket.emit('clear', currentRoomId);
+  }
+
+  function revealResults() {
+    const useIndexStatsCalculation = !cardSet.isNumeric;
+    const ignoredIndices = extraCards.map((value, index) => index + cardSet.cards.length);
+    socket.emit('show results', currentRoomId, useIndexStatsCalculation, ignoredIndices);
+  }
+
+  function onCardSetChanged() {
+    const cardSetIndex = getCardSetElement().value;
+    socket.emit('change card set', currentRoomId, cardSetIndex);
+    clearSelections();
+  }
+
+  function generateRoomId() {
+    return Math.random().toString(36).substring(2, 9);
+  }
+</script>
+</body>
+</html>
