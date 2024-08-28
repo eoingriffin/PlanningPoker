@@ -25,6 +25,46 @@
             margin-bottom: 0;
         }
 
+        #heading::after {
+            content: '';
+            position: absolute;
+            width: 25%;
+            height: 230px;
+            background-color: #50a78f;
+            top: 28%;
+            left: 37%;
+            z-index: -2;
+            border-radius: 70px;
+            filter: blur(182px);
+        }
+
+        #card-buttons::before {
+            content: '';
+            position: absolute;
+            width: 40%;
+            height: 80px;
+            background-color: #a1a1d9;
+            top: 59%;
+            left: 30%;
+            z-index: -3;
+            border-radius: 70px;
+            filter: blur(132px);
+        }
+
+        #card-buttons::after {
+            content: '';
+            position: absolute;
+            width: 65%;
+            height: 230px;
+            background-color: #970038;
+            top: 70%;
+            left: 18%;
+            z-index: -1;
+            border-radius: 70px;
+            filter: blur(192px);
+            opacity: 0.4;
+        }
+
         #roomIdHeading {
             margin-top: 0;
         }
@@ -132,7 +172,6 @@
         Name: <input type="text" id="username" placeholder="Enter your name" onkeydown="handleKeyPress(event)"/>
         Room ID (optional):<input type="text" id="roomId" placeholder="Enter room ID (optional)" onkeydown="handleKeyPress(event)"/>
         <button onclick="enterRoom()">Join</button>
-        </td></tr>
     </div>
     <div id="poker-room" style="display:none;">
         <div id="top-section">
