@@ -153,6 +153,24 @@
                 background-color: #494f60;
                 color: #8a8a8a;
             }
+
+            &:not(.selected):not([disabled]):hover {
+                background: #6EACDA linear-gradient(-75deg, #6EACDA 35%, #FFF 50%, #6EACDA 70%) no-repeat -50px;
+                box-shadow: #291e1e 3px 4px 4px;
+                animation: shine 1.5s 1;
+            }
+        }
+
+        @-webkit-keyframes shine {
+            from {
+                background-position: -150px;
+                box-shadow: #291e1e 0 0 4px;
+            }
+
+            to {
+                background-position: 50px;
+                box-shadow: #291e1e 3px 4px 4px;
+            }
         }
 
         #admin-buttons button {
