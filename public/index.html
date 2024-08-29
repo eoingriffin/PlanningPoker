@@ -12,7 +12,7 @@
             height: 100vh;
             background-color: #021526;
             color: #E2E2B6;
-            font-family: Arial, sans-serif;
+            font-family: "Segoe UI", Arial, sans-serif;
             font-size: 1.5rem;
         }
 
@@ -154,22 +154,16 @@
                 color: #8a8a8a;
             }
 
-            &:not(.selected):not([disabled]):hover {
-                background: #6EACDA linear-gradient(-75deg, #6EACDA 35%, #FFF 50%, #6EACDA 70%) no-repeat -50px;
-                box-shadow: #291e1e 3px 4px 4px;
-                animation: shine 1.5s 1;
-            }
-        }
+            transition: box-shadow 1s, background-position 1.5s;
 
-        @-webkit-keyframes shine {
-            from {
+            &:not(.selected):not([disabled]) {
+                box-shadow: #291e1e 0 0 4px, 0 0 0 #fefeff inset;
                 background-position: -150px;
-                box-shadow: #291e1e 0 0 4px;
             }
 
-            to {
-                background-position: 50px;
-                box-shadow: #291e1e 3px 4px 4px;
+            &:not(.selected):not([disabled]):hover {
+                background: #6EACDA linear-gradient(-75deg, #6EACDA 35%, #80c9ff 50%, #6EACDA 70%) no-repeat 50px;
+                box-shadow: #291e1e 3px 4px 4px, 0 0 10px #fefeff inset;
             }
         }
 
