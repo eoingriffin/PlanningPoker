@@ -10,7 +10,7 @@
             justify-content: center;
             align-items: center;
             height: 100vh;
-            background-color: #021526;
+            background-color: #222b32;
             color: #E2E2B6;
             font-family: "Segoe UI", Arial, sans-serif;
             font-size: 1.5rem;
@@ -63,6 +63,16 @@
             border-radius: 70px;
             filter: blur(192px);
             opacity: 0.4;
+            animation: intro ease-out 1.5s 1;
+        }
+
+        @keyframes intro {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 0.4;
+            }
         }
 
         #roomIdHeading {
@@ -130,7 +140,7 @@
         }
 
         #card-buttons button, #admin-buttons button {
-            background-color: #6EACDA;
+            background-color: #97bbd5;
             color: #021526;
             border: 1px solid #fff;
             border-radius: 3px;
@@ -162,7 +172,7 @@
             }
 
             &:not(.selected):not([disabled]):hover {
-                background: #6EACDA linear-gradient(-75deg, #6EACDA 35%, #80c9ff 50%, #6EACDA 70%) no-repeat 50px;
+                background: #97bbd5 linear-gradient(-75deg, #97bbd5 35%, #a8daff 50%, #97bbd5 70%) no-repeat 50px;
                 box-shadow: #291e1e 3px 4px 4px, 0 0 10px #fefeff inset;
             }
         }
