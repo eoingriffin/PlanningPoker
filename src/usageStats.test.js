@@ -180,8 +180,14 @@ describe('UsageStats', () => {
 
     test('handles corrupt file gracefully on load', () => {
       fs.writeFileSync(TEST_FILE, 'not valid json!!!', 'utf8');
+      const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
       const stats = createStats();
       expect(stats.data).toEqual({});
+      expect(consoleError).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to load stats file'),
+        expect.any(String)
+      );
+      consoleError.mockRestore();
     });
   });
 
