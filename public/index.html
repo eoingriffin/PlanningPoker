@@ -278,9 +278,11 @@
 
   socket.on('user list', (users) => {
     const userList = document.getElementById('user-list');
-    userList.innerHTML = users.map(user => {
+    userList.innerHTML = '';
+    users.forEach(user => {
       let name;
       let selection;
+      const displayName = user.displayName || user.name;
       if (isUserMe(user)) {
         cards.forEach((card, index) => {
           const cardElement = document.getElementById(`card-${index}`);
@@ -290,14 +292,21 @@
             cardElement.classList.remove('selected');
           }
         });
-        name = `${user.name} (me)`;
-        selection = user.card !== undefined ? user.card : '';
+        name = `${displayName} (me)`;
+        selection = user.card !== undefined ? String(user.card) : '';
       } else {
-        name = user.name;
-        selection = user.card !== undefined ? (showResults ? user.card : '&#10004;') : '';
+        name = displayName;
+        selection = user.card !== undefined ? (showResults ? String(user.card) : '\u2714') : '';
       }
-      return `<tr><td>${name}:</td><td>${selection}</td></tr>`;
-    }).join('');
+      const tr = document.createElement('tr');
+      const tdName = document.createElement('td');
+      const tdSelection = document.createElement('td');
+      tdName.textContent = `${name}:`;
+      tdSelection.textContent = selection;
+      tr.appendChild(tdName);
+      tr.appendChild(tdSelection);
+      userList.appendChild(tr);
+    });
   });
 
   function setCardsDisabled(disabled) {
@@ -375,8 +384,8 @@
   }
 
   function enterRoom() {
-    const name = document.getElementById('username').value;
-    const roomId = document.getElementById('roomId').value || generateRoomId();
+    const name = document.getElementById('username').value.trim();
+    const roomId = document.getElementById('roomId').value.trim() || generateRoomId();
     if (name && roomId) {
       localStorage.setItem('username', name);
       currentRoomId = roomId;
@@ -385,7 +394,7 @@
       document.getElementById('poker-room').style.display = 'block';
       document.title = `Planning Poker - Room ${roomId}`;
       const roomIdHeading = document.getElementById('roomIdHeading');
-      roomIdHeading.innerHTML = `(${roomId})`;
+      roomIdHeading.textContent = `(${roomId})`;
       history.pushState({}, `Planning Poker - Room ${roomId}`, `?roomId=${roomId}`);
     }
   }
@@ -415,7 +424,7 @@
   }
 
   function onCardSetChanged() {
-    const cardSetIndex = getCardSetElement().value;
+    const cardSetIndex = Number(getCardSetElement().value);
     socket.emit('change card set', currentRoomId, cardSetIndex);
     clearSelections();
   }
