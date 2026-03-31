@@ -18,7 +18,12 @@ class RoomManager {
    * Create a room if it doesn't exist and return it.
    */
   getOrCreateRoom(roomId) {
+    let isReuse = false;
     if (!this.rooms[roomId]) {
+      if (this.deletedRoomIds && this.deletedRoomIds.has(roomId)) {
+        isReuse = true;
+        this.deletedRoomIds.delete(roomId);
+      }
       this.rooms[roomId] = {
         users: [],
         adminId: undefined,
@@ -27,7 +32,7 @@ class RoomManager {
         stats: undefined,
       };
     }
-    return this.rooms[roomId];
+    return { room: this.rooms[roomId], isReuse };
   }
 
   /**
@@ -41,7 +46,7 @@ class RoomManager {
    * Add a user to a room. Returns { room, user, isNewAdmin }.
    */
   joinRoom(roomId, socketId, name) {
-    const room = this.getOrCreateRoom(roomId);
+    const { room, isReuse } = this.getOrCreateRoom(roomId);
     const user = { id: socketId, name, card: undefined, cardIndex: undefined };
     room.users.push(user);
     this.socketToRoom[socketId] = roomId;
@@ -52,7 +57,7 @@ class RoomManager {
       isNewAdmin = true;
     }
 
-    return { room, user, isNewAdmin };
+    return { room, user, isNewAdmin, isReuse };
   }
 
   /**
@@ -168,6 +173,8 @@ class RoomManager {
     let roomDeleted = false;
     if (room.users.length === 0) {
       delete this.rooms[roomId];
+      if (!this.deletedRoomIds) this.deletedRoomIds = new Set();
+      this.deletedRoomIds.add(roomId);
       roomDeleted = true;
     }
 

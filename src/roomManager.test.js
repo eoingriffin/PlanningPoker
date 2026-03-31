@@ -8,7 +8,7 @@ beforeEach(() => {
 
 describe('getOrCreateRoom', () => {
   test('creates a new room with correct defaults', () => {
-    const room = manager.getOrCreateRoom('room1');
+    const { room } = manager.getOrCreateRoom('room1');
     expect(room.users).toEqual([]);
     expect(room.adminId).toBeUndefined();
     expect(room.cardSetIndex).toBeUndefined();
@@ -17,11 +17,16 @@ describe('getOrCreateRoom', () => {
   });
 
   test('returns existing room if already created', () => {
-    const room1 = manager.getOrCreateRoom('room1');
+    const { room: room1 } = manager.getOrCreateRoom('room1');
     room1.cardSetIndex = 3;
-    const room2 = manager.getOrCreateRoom('room1');
+    const { room: room2 } = manager.getOrCreateRoom('room1');
     expect(room2.cardSetIndex).toBe(3);
     expect(room1).toBe(room2);
+  });
+
+  test('isReuse is false for a brand new room', () => {
+    const { isReuse } = manager.getOrCreateRoom('room1');
+    expect(isReuse).toBe(false);
   });
 });
 
@@ -52,6 +57,11 @@ describe('joinRoom', () => {
     const room = manager.getRoom('room1');
     expect(room.adminId).toBe('socket1');
     expect(room.users).toHaveLength(2);
+  });
+
+  test('returns isReuse false for new room', () => {
+    const { isReuse } = manager.joinRoom('room1', 'socket1', 'Alice');
+    expect(isReuse).toBe(false);
   });
 
   test('user is added with correct initial state', () => {
@@ -274,5 +284,38 @@ describe('getUsersForDisplay', () => {
 
   test('returns empty array for non-existent room', () => {
     expect(manager.getUsersForDisplay('nonexistent')).toEqual([]);
+  });
+});
+
+describe('room reuse detection', () => {
+  test('detects reuse when room is re-created after deletion', () => {
+    manager.joinRoom('room1', 'socket1', 'Alice');
+    manager.removeUser('socket1'); // deletes room1
+    const { isReuse } = manager.joinRoom('room1', 'socket2', 'Bob');
+    expect(isReuse).toBe(true);
+  });
+
+  test('does not flag as reuse for a brand-new room', () => {
+    const { isReuse } = manager.joinRoom('room1', 'socket1', 'Alice');
+    expect(isReuse).toBe(false);
+  });
+
+  test('reuse flag is one-shot — not flagged on subsequent joins to same room', () => {
+    manager.joinRoom('room1', 'socket1', 'Alice');
+    manager.removeUser('socket1');
+    manager.joinRoom('room1', 'socket2', 'Bob');
+    const { isReuse } = manager.joinRoom('room1', 'socket3', 'Charlie');
+    expect(isReuse).toBe(false); // room already exists, not a reuse event
+  });
+
+  test('different rooms have independent reuse tracking', () => {
+    manager.joinRoom('room1', 'socket1', 'Alice');
+    manager.joinRoom('room2', 'socket2', 'Bob');
+    manager.removeUser('socket1');
+    // room1 deleted, room2 still active
+    const { isReuse: reuse1 } = manager.joinRoom('room1', 'socket3', 'Charlie');
+    const { isReuse: reuse2 } = manager.joinRoom('room2', 'socket4', 'Dave');
+    expect(reuse1).toBe(true);
+    expect(reuse2).toBe(false); // room2 was never deleted
   });
 });

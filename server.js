@@ -4,11 +4,23 @@ const socketIo = require('socket.io');
 const RoomManager = require('./src/roomManager');
 const { calculateStatistics } = require('./src/statistics');
 const { validateUsername, validateRoomId } = require('./src/validation');
+const UsageStats = require('./src/usageStats');
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 const roomManager = new RoomManager();
+const usageStats = new UsageStats();
+
+const cardSets = [
+  { index: 0, name: 'Fibonacci' },
+  { index: 1, name: 'Fibonacci++' },
+  { index: 2, name: 'T-shirt Sizes' },
+  { index: 3, name: 'Relative Sizes' },
+  { index: 4, name: 'Powers of 2' },
+  { index: 5, name: 'Prime Numbers' },
+  { index: 6, name: 'Logarithmic Scale' },
+];
 
 app.use(express.static('public'));
 
@@ -31,13 +43,20 @@ function emitUserList(roomId) {
 }
 
 io.on('connection', (socket) => {
+  usageStats.recordConnection();
+
   socket.on('join room', (roomId, name) => {
     const nameResult = validateUsername(name);
     const roomResult = validateRoomId(roomId);
     if (!nameResult.valid || !roomResult.valid) return;
 
     socket.join(roomResult.sanitized);
-    const { room, user, isNewAdmin } = roomManager.joinRoom(roomResult.sanitized, socket.id, nameResult.sanitized);
+    const { room, user, isNewAdmin, isReuse } = roomManager.joinRoom(roomResult.sanitized, socket.id, nameResult.sanitized);
+
+    usageStats.recordJoin(roomResult.sanitized, nameResult.sanitized);
+    if (isReuse) {
+      usageStats.recordRoomReuse();
+    }
 
     if (isNewAdmin) {
       broadcastMessage(roomResult.sanitized, `${user.name} is now the Admin`);
@@ -75,6 +94,7 @@ io.on('connection', (socket) => {
   socket.on('show results', (roomId, useIndexStatsCalculation, ignoredIndices) => {
     const result = roomManager.showResults(roomId, socket.id, calculateStatistics, useIndexStatsCalculation, ignoredIndices);
     if (result) {
+      usageStats.recordVotingRound();
       io.to(roomId).emit('show results');
       emitUserList(roomId);
       io.to(roomId).emit('show stats', result.stats);
@@ -84,15 +104,22 @@ io.on('connection', (socket) => {
   socket.on('change card set', (roomId, cardSetIndex) => {
     const index = Number(cardSetIndex);
     if (roomManager.changeCardSet(roomId, socket.id, index)) {
+      const cardSet = cardSets.find(cs => cs.index === index);
+      if (cardSet) usageStats.recordCardSetUsage(cardSet.name);
       io.to(roomId).emit('change card set', index);
     }
   });
 
   socket.on('disconnect', () => {
+    usageStats.recordDisconnect();
     const result = roomManager.removeUser(socket.id);
-    if (!result || result.roomDeleted) return;
+    if (!result) return;
 
-    const { roomId, newAdmin } = result;
+    const { roomId, newAdmin, roomDeleted } = result;
+    if (roomDeleted) {
+      usageStats.trackRoomDeletion(roomId);
+      return;
+    }
     if (newAdmin) {
       broadcastMessage(roomId, `${newAdmin.name} is now the Admin`);
       io.to(newAdmin.id).emit('admin');
@@ -106,4 +133,12 @@ server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
 
-module.exports = { app, server, io, roomManager };
+function shutdown() {
+  usageStats.flush();
+  usageStats.stop();
+  process.exit(0);
+}
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
+
+module.exports = { app, server, io, roomManager, usageStats };
